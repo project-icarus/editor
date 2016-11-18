@@ -1,17 +1,53 @@
 require("imgui")
+local lunajson = require("lunajson")
+local filename = ""
 local drag = false
 local waypoints = { }
 local selected = 0
 local next_waypoint = 1
-love.load = function() end
+local dimensions = {
+  50,
+  50
+}
+love.load = function()
+  return love.window.setMode(1366, 768)
+end
 love.update = function()
   return imgui.NewFrame()
 end
 love.draw = function()
+  imgui.Begin('Main')
+  local _
+  _, filename = imgui.InputText("Filename", filename, 64)
+  _, dimensions[1], dimensions[2] = imgui.DragFloat2("Boundary Dimensions", dimensions[1], dimensions[2])
+  if dimensions[1] < 0.0 then
+    dimensions[1] = 0.0
+  end
+  if dimensions[2] < 0.0 then
+    dimensions[2] = 0.0
+  end
+  if imgui.Button('Export') then
+    local f = io.open(filename, 'w')
+    io.output(f)
+    io.write(lunajson.encode({
+      width = dimensions[1],
+      height = dimensions[2],
+      waypoints = (function()
+        local _accum_0 = { }
+        local _len_0 = 1
+        for _, wp in ipairs(waypoints) do
+          _accum_0[_len_0] = wp
+          _len_0 = _len_0 + 1
+        end
+        return _accum_0
+      end)()
+    }))
+    io.close(f)
+  end
+  imgui.End()
   if selected ~= 0 then
     local wp = waypoints[selected]
     imgui.Begin('Edit Waypoint')
-    local _
     _, wp.name = imgui.InputText("Name", wp.name, 8)
     if imgui.Button('Delete Waypoint') then
       waypoints[selected] = nil
@@ -28,12 +64,16 @@ love.draw = function()
     else
       love.graphics.setColor(100, 153, 107)
     end
+    love.graphics.setLineWidth(2)
     love.graphics.circle("line", wp.x, wp.y, 10, 50)
   end
   for _, wp in pairs(waypoints) do
     love.graphics.setColor(16, 71, 20)
     love.graphics.print(wp.name, wp.x + 10, wp.y + 10)
   end
+  love.graphics.setLineWidth(3)
+  love.graphics.setColor(208, 232, 210)
+  love.graphics.rectangle("line", 2, 2, dimensions[1], dimensions[2])
   love.graphics.setColor(255, 255, 255, 255)
   return imgui.Render()
 end

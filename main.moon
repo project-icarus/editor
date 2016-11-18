@@ -1,16 +1,42 @@
 require "imgui"
+lunajson = require "lunajson"
 
+filename = ""
 drag = false
 waypoints = {}
 selected = 0
 next_waypoint = 1
 
+dimensions = {50, 50}
+
 love.load = ->
+    love.window.setMode(1366, 768)
 
 love.update = ->
     imgui.NewFrame!
 
 love.draw = ->
+    imgui.Begin('Main')
+    _, filename = imgui.InputText("Filename", filename, 64)
+    _, dimensions[1], dimensions[2] = imgui.DragFloat2(
+        "Boundary Dimensions", dimensions[1], dimensions[2])
+    if dimensions[1] < 0.0
+        dimensions[1] = 0.0
+    if dimensions[2] < 0.0
+        dimensions[2] = 0.0
+
+    if imgui.Button('Export')
+        f = io.open(filename, 'w')
+        io.output(f)
+        io.write(lunajson.encode({
+            width: dimensions[1],
+            height: dimensions[2],
+            waypoints: [ wp for _, wp in ipairs waypoints ]
+        }))
+        io.close(f)
+    imgui.End!
+
+
     if selected != 0
         wp = waypoints[selected]
         imgui.Begin('Edit Waypoint')
@@ -28,10 +54,14 @@ love.draw = ->
             love.graphics.setColor(208, 232, 210)
         else
             love.graphics.setColor(100, 153, 107)
+        love.graphics.setLineWidth(2)
         love.graphics.circle("line", wp.x, wp.y, 10, 50)
     for _, wp in pairs waypoints
         love.graphics.setColor(16, 71, 20)
         love.graphics.print(wp.name, wp.x + 10, wp.y + 10)
+    love.graphics.setLineWidth(3)
+    love.graphics.setColor(208, 232, 210)
+    love.graphics.rectangle("line", 2, 2, dimensions[1], dimensions[2])
     love.graphics.setColor(255, 255, 255, 255)
     imgui.Render()
 
