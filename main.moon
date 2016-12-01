@@ -10,7 +10,7 @@ next_waypoint = 1
 dimensions = {50, 50}
 
 love.load = ->
-    love.window.setMode(1366, 768)
+    love.window.setMode(0, 0)
 
 love.update = ->
     imgui.NewFrame!

@@ -10,7 +10,7 @@ local dimensions = {
   50
 }
 love.load = function()
-  return love.window.setMode(1366, 768)
+  return love.window.setMode(0, 0)
 end
 love.update = function()
   return imgui.NewFrame()
