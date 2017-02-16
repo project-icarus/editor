@@ -10,9 +10,13 @@ runways = {}
 next_runway = 1
 selected_runway = 0
 
+local font
+
 dimensions = {50, 50}
 
 love.load = ->
+    font = love.graphics.newFont('3270Medium.ttf', 20)
+    love.graphics.setFont(font)
     love.window.setMode(0, 0)
 
 love.update = ->
@@ -34,8 +38,15 @@ love.draw = ->
         io.write(lunajson.encode({
             width: dimensions[1],
             height: dimensions[2],
-            waypoints: [ wp for _, wp in ipairs waypoints ]
-            runways: [ runway for _, runway in ipairs runways ]
+            waypoints: [{
+                name: wp.name,
+                x: wp.x,
+                y: dimensions[2] - wp.y
+            } for _, wp in pairs waypoints]
+            runways: [{
+                names: rw.names,
+                points: [{x: point.x, y: dimensions[2] - point.y} for _, point in ipairs rw.points]
+            } for _, rw in pairs runways]
         }))
         io.close(f)
     imgui.End!
@@ -48,6 +59,20 @@ love.draw = ->
         if imgui.Button('Delete Waypoint')
             waypoints[selected] = nil
             selected = 0
+        imgui.End!
+    
+    if selected_runway != 0
+        rw = runways[selected_runway]
+        imgui.Begin('Edit Runway')
+        for i, name in ipairs rw.names
+            _, name.name = imgui.InputText("Name "..i, name.name, 8)
+            _, name.offset.angle = imgui.DragFloat("Name "..i.." Angle", name.offset.angle)
+            _, name.distance = imgui.DragFloat("Name "..i.." Distance", name.distance)
+            name.offset.x = name.distance * math.cos(name.offset.angle)
+            name.offset.y = name.distance * math.sin(name.offset.angle)
+        if imgui.Button('Delete Runway')
+            runways[selected_runway] = nil
+            selected_runway = 0
         imgui.End!
 
     love.graphics.clear(89, 142, 111, 255)
@@ -65,8 +90,18 @@ love.draw = ->
         love.graphics.print(wp.name, wp.x + 10, wp.y + 10)
 
     for id, rw in pairs runways
+        love.graphics.setLineWidth(3)
         love.graphics.setColor(16, 71, 20)
         love.graphics.line(rw.points[1].x, rw.points[1].y, rw.points[2].x, rw.points[2].y)
+        if id == selected_runway
+            love.graphics.setColor(208, 232, 210)
+
+        for i, name in ipairs rw.names
+            love.graphics.printf(name.name,
+                rw.points[i].x + name.offset.x - 200,
+                rw.points[i].y + name.offset.y - font\getHeight() / 2,
+                400,
+                'center')
 
     love.graphics.setLineWidth(3)
     love.graphics.setColor(208, 232, 210)
@@ -154,9 +189,48 @@ love.mousepressed = (x, y, button) ->
                         else
                             selected = id
                         return
+                for id, rw in pairs runways
+                    x1, y1 = rw.points[1].x, rw.points[1].y
+                    x2, y2 = rw.points[2].x, rw.points[2].y
+                    px = x2 - x1
+                    py = y2 - y1
+                    lsq = px * px + py * py
+                    u = ((x - x1) * px + (y - y1) * py) / lsq
+                    if u > 1
+                        u = 1
+                    if u < 0
+                        u = 0
+                    xx = x1 + u * px
+                    yy = y1 + u * py
+                    dx = x - xx
+                    dy = y - yy
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist < 15
+                        selected_runway = id
+                        return
                 if button == 1
                     if love.keyboard.isDown("lshift")
                         runways[next_runway] = 
+                            names: {
+                                {
+                                    name: "1C"
+                                    distance: 20
+                                    offset: {
+                                        angle: 0
+                                        x: 10
+                                        y: 0
+                                    }
+                                },
+                                {
+                                    name: "1C"
+                                    distance: 20
+                                    offset: {
+                                        angle: 0
+                                        x: 10
+                                        y: 0
+                                    }
+                                }
+                            }
                             points: {
                                 {
                                     x: x

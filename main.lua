@@ -8,11 +8,14 @@ local next_waypoint = 1
 local runways = { }
 local next_runway = 1
 local selected_runway = 0
+local font
 local dimensions = {
   50,
   50
 }
 love.load = function()
+  font = love.graphics.newFont('3270Medium.ttf', 20)
+  love.graphics.setFont(font)
   return love.window.setMode(0, 0)
 end
 love.update = function()
@@ -38,8 +41,12 @@ love.draw = function()
       waypoints = (function()
         local _accum_0 = { }
         local _len_0 = 1
-        for _, wp in ipairs(waypoints) do
-          _accum_0[_len_0] = wp
+        for _, wp in pairs(waypoints) do
+          _accum_0[_len_0] = {
+            name = wp.name,
+            x = wp.x,
+            y = dimensions[2] - wp.y
+          }
           _len_0 = _len_0 + 1
         end
         return _accum_0
@@ -47,8 +54,22 @@ love.draw = function()
       runways = (function()
         local _accum_0 = { }
         local _len_0 = 1
-        for _, runway in ipairs(runways) do
-          _accum_0[_len_0] = runway
+        for _, rw in pairs(runways) do
+          _accum_0[_len_0] = {
+            names = rw.names,
+            points = (function()
+              local _accum_1 = { }
+              local _len_1 = 1
+              for _, point in ipairs(rw.points) do
+                _accum_1[_len_1] = {
+                  x = point.x,
+                  y = dimensions[2] - point.y
+                }
+                _len_1 = _len_1 + 1
+              end
+              return _accum_1
+            end)()
+          }
           _len_0 = _len_0 + 1
         end
         return _accum_0
@@ -64,6 +85,22 @@ love.draw = function()
     if imgui.Button('Delete Waypoint') then
       waypoints[selected] = nil
       selected = 0
+    end
+    imgui.End()
+  end
+  if selected_runway ~= 0 then
+    local rw = runways[selected_runway]
+    imgui.Begin('Edit Runway')
+    for i, name in ipairs(rw.names) do
+      _, name.name = imgui.InputText("Name " .. i, name.name, 8)
+      _, name.offset.angle = imgui.DragFloat("Name " .. i .. " Angle", name.offset.angle)
+      _, name.distance = imgui.DragFloat("Name " .. i .. " Distance", name.distance)
+      name.offset.x = name.distance * math.cos(name.offset.angle)
+      name.offset.y = name.distance * math.sin(name.offset.angle)
+    end
+    if imgui.Button('Delete Runway') then
+      runways[selected_runway] = nil
+      selected_runway = 0
     end
     imgui.End()
   end
@@ -84,8 +121,15 @@ love.draw = function()
     love.graphics.print(wp.name, wp.x + 10, wp.y + 10)
   end
   for id, rw in pairs(runways) do
+    love.graphics.setLineWidth(3)
     love.graphics.setColor(16, 71, 20)
     love.graphics.line(rw.points[1].x, rw.points[1].y, rw.points[2].x, rw.points[2].y)
+    if id == selected_runway then
+      love.graphics.setColor(208, 232, 210)
+    end
+    for i, name in ipairs(rw.names) do
+      love.graphics.printf(name.name, rw.points[i].x + name.offset.x - 200, rw.points[i].y + name.offset.y - font:getHeight() / 2, 400, 'center')
+    end
   end
   love.graphics.setLineWidth(3)
   love.graphics.setColor(208, 232, 210)
@@ -181,9 +225,52 @@ love.mousepressed = function(x, y, button)
           return 
         end
       end
+      for id, rw in pairs(runways) do
+        local x1, y1 = rw.points[1].x, rw.points[1].y
+        local x2, y2 = rw.points[2].x, rw.points[2].y
+        local px = x2 - x1
+        local py = y2 - y1
+        local lsq = px * px + py * py
+        local u = ((x - x1) * px + (y - y1) * py) / lsq
+        if u > 1 then
+          u = 1
+        end
+        if u < 0 then
+          u = 0
+        end
+        local xx = x1 + u * px
+        local yy = y1 + u * py
+        local dx = x - xx
+        local dy = y - yy
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist < 15 then
+          selected_runway = id
+          return 
+        end
+      end
       if button == 1 then
         if love.keyboard.isDown("lshift") then
           runways[next_runway] = {
+            names = {
+              {
+                name = "1C",
+                distance = 20,
+                offset = {
+                  angle = 0,
+                  x = 10,
+                  y = 0
+                }
+              },
+              {
+                name = "1C",
+                distance = 20,
+                offset = {
+                  angle = 0,
+                  x = 10,
+                  y = 0
+                }
+              }
+            },
             points = {
               {
                 x = x,
