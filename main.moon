@@ -9,6 +9,8 @@ next_waypoint = 1
 runways = {}
 next_runway = 1
 selected_runway = 0
+selected_runway_point = 0
+local runway_drag_offset
 
 local font
 
@@ -144,20 +146,20 @@ snap = (x, y, sx, sy) ->
         return sx, sy
     return x, y
 
-snapRunway = (x, y) ->
+snapRunway = (x, y, i) ->
     sel = runways[selected_runway]
-    dx = sel.points[1].x - x
-    dy = sel.points[1].y - y
+    dx = sel.points[i].x - x
+    dy = sel.points[i].y - y
     dist = math.sqrt(dx * dx + dy * dy)
     sqrt2 = math.sqrt(2) / 2
     --90 deg
-    x, y = snap(x, y, x, sel.points[1].y)
-    x, y = snap(x, y, sel.points[1].x, y)
+    x, y = snap(x, y, x, sel.points[i].y)
+    x, y = snap(x, y, sel.points[i].x, y)
     --45 deg
-    x, y = snap(x, y, sel.points[1].x + dist * sqrt2, sel.points[1].y + dist * sqrt2)
-    x, y = snap(x, y, sel.points[1].x - dist * sqrt2, sel.points[1].y + dist * sqrt2)
-    x, y = snap(x, y, sel.points[1].x + dist * sqrt2, sel.points[1].y - dist * sqrt2)
-    x, y = snap(x, y, sel.points[1].x - dist * sqrt2, sel.points[1].y - dist * sqrt2)
+    x, y = snap(x, y, sel.points[i].x + dist * sqrt2, sel.points[i].y + dist * sqrt2)
+    x, y = snap(x, y, sel.points[i].x - dist * sqrt2, sel.points[i].y + dist * sqrt2)
+    x, y = snap(x, y, sel.points[i].x + dist * sqrt2, sel.points[i].y - dist * sqrt2)
+    x, y = snap(x, y, sel.points[i].x - dist * sqrt2, sel.points[i].y - dist * sqrt2)
     for id, rw in pairs runways
         if id != selected_runway
             --parallel
@@ -166,11 +168,11 @@ snapRunway = (x, y) ->
             len = math.sqrt(dx * dx + dy * dy)
             dx /= len
             dy /= len
-            x, y = snap(x, y, sel.points[1].x + dist * dx, sel.points[1].y + dist * dy)
-            x, y = snap(x, y, sel.points[1].x - dist * dx, sel.points[1].y - dist * dy)
+            x, y = snap(x, y, sel.points[i].x + dist * dx, sel.points[i].y + dist * dy)
+            x, y = snap(x, y, sel.points[i].x - dist * dx, sel.points[i].y - dist * dy)
 
-            x, y = snap(x, y, sel.points[1].x + dist * dy, sel.points[1].y - dist * dx)
-            x, y = snap(x, y, sel.points[1].x - dist * dy, sel.points[1].y + dist * dx)
+            x, y = snap(x, y, sel.points[i].x + dist * dy, sel.points[i].y - dist * dx)
+            x, y = snap(x, y, sel.points[i].x - dist * dy, sel.points[i].y + dist * dx)
     return x, y
 
 love.mousemoved = (x, y) ->
@@ -181,9 +183,20 @@ love.mousemoved = (x, y) ->
                 waypoints[selected].x = x
                 waypoints[selected].y = y
             when "placing_runway"
-                x, y = snapRunway(x, y)
+                x, y = snapRunway(x, y, 1)
                 runways[selected_runway].points[2].x = x
                 runways[selected_runway].points[2].y = y
+            when "editing_runway"
+                x, y = snapRunway(x, y, if selected_runway_point == 1 then 2 else 1)
+                runways[selected_runway].points[selected_runway_point].x = x
+                runways[selected_runway].points[selected_runway_point].y = y
+            when "dragging_runway"
+                runways[selected_runway].points[2].x = x + runway_drag_offset.x +
+                    runways[selected_runway].points[2].x - runways[selected_runway].points[1].x
+                runways[selected_runway].points[2].y = y + runway_drag_offset.y +
+                    runways[selected_runway].points[2].y - runways[selected_runway].points[1].y
+                runways[selected_runway].points[1].x = x + runway_drag_offset.x
+                runways[selected_runway].points[1].y = y + runway_drag_offset.y
 
 love.mousepressed = (x, y, button) ->
     imgui.MousePressed(button)
@@ -191,9 +204,11 @@ love.mousepressed = (x, y, button) ->
         switch mode
             when "placing_runway"
                 mode = "idle"
+            when "editing_runway"
+                mode = "idle"
+            when "dragging_runway"
+                mode = "idle"
             when "idle"
-                if button == 1
-                    mode = "dragging"
                 for id, wp in pairs waypoints
                     dx = x - wp.x
                     dy = y - wp.y
@@ -204,10 +219,23 @@ love.mousepressed = (x, y, button) ->
                             waypoints[id] = nil
                         else
                             selected = id
+                            mode = "dragging"
                         return
                 for id, rw in pairs runways
                     x1, y1 = rw.points[1].x, rw.points[1].y
                     x2, y2 = rw.points[2].x, rw.points[2].y
+
+                    dx, dy = x - x1, y - y1
+                    if math.sqrt(dx * dx + dy * dy) < 10
+                        selected_runway = id
+                        selected_runway_point = 1
+                        mode = "editing_runway"
+                    dx, dy = x - x2, y - y2
+                    if math.sqrt(dx * dx + dy * dy) < 10
+                        selected_runway = id
+                        selected_runway_point = 2
+                        mode = "editing_runway"
+
                     px = x2 - x1
                     py = y2 - y1
                     lsq = px * px + py * py
@@ -221,8 +249,13 @@ love.mousepressed = (x, y, button) ->
                     dx = x - xx
                     dy = y - yy
                     dist = math.sqrt(dx * dx + dy * dy)
-                    if dist < 15
+                    if dist < 12
                         selected_runway = id
+                        mode = "dragging_runway"
+                        runway_drag_offset = {
+                            x: rw.points[1].x - x
+                            y: rw.points[1].y - y
+                        }
                         return
                 if button == 1
                     if love.keyboard.isDown("lshift")

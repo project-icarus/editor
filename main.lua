@@ -8,6 +8,8 @@ local next_waypoint = 1
 local runways = { }
 local next_runway = 1
 local selected_runway = 0
+local selected_runway_point = 0
+local runway_drag_offset
 local font
 local dimensions = {
   50,
@@ -205,18 +207,18 @@ snap = function(x, y, sx, sy)
   return x, y
 end
 local snapRunway
-snapRunway = function(x, y)
+snapRunway = function(x, y, i)
   local sel = runways[selected_runway]
-  local dx = sel.points[1].x - x
-  local dy = sel.points[1].y - y
+  local dx = sel.points[i].x - x
+  local dy = sel.points[i].y - y
   local dist = math.sqrt(dx * dx + dy * dy)
   local sqrt2 = math.sqrt(2) / 2
-  x, y = snap(x, y, x, sel.points[1].y)
-  x, y = snap(x, y, sel.points[1].x, y)
-  x, y = snap(x, y, sel.points[1].x + dist * sqrt2, sel.points[1].y + dist * sqrt2)
-  x, y = snap(x, y, sel.points[1].x - dist * sqrt2, sel.points[1].y + dist * sqrt2)
-  x, y = snap(x, y, sel.points[1].x + dist * sqrt2, sel.points[1].y - dist * sqrt2)
-  x, y = snap(x, y, sel.points[1].x - dist * sqrt2, sel.points[1].y - dist * sqrt2)
+  x, y = snap(x, y, x, sel.points[i].y)
+  x, y = snap(x, y, sel.points[i].x, y)
+  x, y = snap(x, y, sel.points[i].x + dist * sqrt2, sel.points[i].y + dist * sqrt2)
+  x, y = snap(x, y, sel.points[i].x - dist * sqrt2, sel.points[i].y + dist * sqrt2)
+  x, y = snap(x, y, sel.points[i].x + dist * sqrt2, sel.points[i].y - dist * sqrt2)
+  x, y = snap(x, y, sel.points[i].x - dist * sqrt2, sel.points[i].y - dist * sqrt2)
   for id, rw in pairs(runways) do
     if id ~= selected_runway then
       dx = rw.points[2].x - rw.points[1].x
@@ -224,10 +226,10 @@ snapRunway = function(x, y)
       local len = math.sqrt(dx * dx + dy * dy)
       dx = dx / len
       dy = dy / len
-      x, y = snap(x, y, sel.points[1].x + dist * dx, sel.points[1].y + dist * dy)
-      x, y = snap(x, y, sel.points[1].x - dist * dx, sel.points[1].y - dist * dy)
-      x, y = snap(x, y, sel.points[1].x + dist * dy, sel.points[1].y - dist * dx)
-      x, y = snap(x, y, sel.points[1].x - dist * dy, sel.points[1].y + dist * dx)
+      x, y = snap(x, y, sel.points[i].x + dist * dx, sel.points[i].y + dist * dy)
+      x, y = snap(x, y, sel.points[i].x - dist * dx, sel.points[i].y - dist * dy)
+      x, y = snap(x, y, sel.points[i].x + dist * dy, sel.points[i].y - dist * dx)
+      x, y = snap(x, y, sel.points[i].x - dist * dy, sel.points[i].y + dist * dx)
     end
   end
   return x, y
@@ -240,9 +242,24 @@ love.mousemoved = function(x, y)
       waypoints[selected].x = x
       waypoints[selected].y = y
     elseif "placing_runway" == _exp_0 then
-      x, y = snapRunway(x, y)
+      x, y = snapRunway(x, y, 1)
       runways[selected_runway].points[2].x = x
       runways[selected_runway].points[2].y = y
+    elseif "editing_runway" == _exp_0 then
+      x, y = snapRunway(x, y, (function()
+        if selected_runway_point == 1 then
+          return 2
+        else
+          return 1
+        end
+      end)())
+      runways[selected_runway].points[selected_runway_point].x = x
+      runways[selected_runway].points[selected_runway_point].y = y
+    elseif "dragging_runway" == _exp_0 then
+      runways[selected_runway].points[2].x = x + runway_drag_offset.x + runways[selected_runway].points[2].x - runways[selected_runway].points[1].x
+      runways[selected_runway].points[2].y = y + runway_drag_offset.y + runways[selected_runway].points[2].y - runways[selected_runway].points[1].y
+      runways[selected_runway].points[1].x = x + runway_drag_offset.x
+      runways[selected_runway].points[1].y = y + runway_drag_offset.y
     end
   end
 end
@@ -252,10 +269,11 @@ love.mousepressed = function(x, y, button)
     local _exp_0 = mode
     if "placing_runway" == _exp_0 then
       mode = "idle"
+    elseif "editing_runway" == _exp_0 then
+      mode = "idle"
+    elseif "dragging_runway" == _exp_0 then
+      mode = "idle"
     elseif "idle" == _exp_0 then
-      if button == 1 then
-        mode = "dragging"
-      end
       for id, wp in pairs(waypoints) do
         local dx = x - wp.x
         local dy = y - wp.y
@@ -267,6 +285,7 @@ love.mousepressed = function(x, y, button)
             waypoints[id] = nil
           else
             selected = id
+            mode = "dragging"
           end
           return 
         end
@@ -274,6 +293,18 @@ love.mousepressed = function(x, y, button)
       for id, rw in pairs(runways) do
         local x1, y1 = rw.points[1].x, rw.points[1].y
         local x2, y2 = rw.points[2].x, rw.points[2].y
+        local dx, dy = x - x1, y - y1
+        if math.sqrt(dx * dx + dy * dy) < 10 then
+          selected_runway = id
+          selected_runway_point = 1
+          mode = "editing_runway"
+        end
+        dx, dy = x - x2, y - y2
+        if math.sqrt(dx * dx + dy * dy) < 10 then
+          selected_runway = id
+          selected_runway_point = 2
+          mode = "editing_runway"
+        end
         local px = x2 - x1
         local py = y2 - y1
         local lsq = px * px + py * py
@@ -286,11 +317,16 @@ love.mousepressed = function(x, y, button)
         end
         local xx = x1 + u * px
         local yy = y1 + u * py
-        local dx = x - xx
-        local dy = y - yy
+        dx = x - xx
+        dy = y - yy
         local dist = math.sqrt(dx * dx + dy * dy)
-        if dist < 15 then
+        if dist < 12 then
           selected_runway = id
+          mode = "dragging_runway"
+          runway_drag_offset = {
+            x = rw.points[1].x - x,
+            y = rw.points[1].y - y
+          }
           return 
         end
       end
