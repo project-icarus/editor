@@ -77,6 +77,52 @@ love.draw = function()
     }))
     io.close(f)
   end
+  if imgui.Button('Load') then
+    local f = io.open(filename, 'r')
+    io.input(f)
+    local obj = lunajson.decode(io.read("*all"))
+    dimensions = {
+      obj.width,
+      obj.height
+    }
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      for _, wp in pairs(obj.waypoints) do
+        _accum_0[_len_0] = {
+          name = wp.name,
+          x = wp.x,
+          y = dimensions[2] - wp.y
+        }
+        _len_0 = _len_0 + 1
+      end
+      waypoints = _accum_0
+    end
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      for _, rw in pairs(obj.runways) do
+        _accum_0[_len_0] = {
+          names = rw.names,
+          points = (function()
+            local _accum_1 = { }
+            local _len_1 = 1
+            for _, point in ipairs(rw.points) do
+              _accum_1[_len_1] = {
+                x = point.x,
+                y = dimensions[2] - point.y
+              }
+              _len_1 = _len_1 + 1
+            end
+            return _accum_1
+          end)()
+        }
+        _len_0 = _len_0 + 1
+      end
+      runways = _accum_0
+    end
+    io.close(f)
+  end
   imgui.End()
   if selected ~= 0 then
     local wp = waypoints[selected]

@@ -49,8 +49,24 @@ love.draw = ->
             } for _, rw in pairs runways]
         }))
         io.close(f)
-    imgui.End!
 
+    if imgui.Button('Load')
+        f = io.open(filename, 'r')
+        io.input(f)
+        obj = lunajson.decode(io.read("*all"))
+        dimensions = {obj.width, obj.height}
+        waypoints = [{
+            name: wp.name,
+            x: wp.x,
+            y: dimensions[2] - wp.y
+        } for _, wp in pairs obj.waypoints]
+        runways = [{
+            names: rw.names,
+            points: [{x: point.x, y: dimensions[2] - point.y} for _, point in ipairs rw.points]
+        } for _, rw in pairs obj.runways]
+        io.close(f)
+
+    imgui.End!
 
     if selected != 0
         wp = waypoints[selected]
