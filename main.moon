@@ -124,6 +124,13 @@ love.draw = ->
     love.graphics.setLineWidth(3)
     love.graphics.setColor(208, 232, 210)
     love.graphics.rectangle("line", 2, 2, dimensions[1], dimensions[2])
+
+    love.graphics.setLineWidth(2)
+    love.graphics.setColor(0, 0, 0)
+    y = love.graphics.getHeight()
+    love.graphics.line(20, y - 20, 20 + 100, y - 20)
+    love.graphics.print("5 km", 20, y - 40)
+
     love.graphics.setColor(255, 255, 255, 255)
     imgui.Render()
 
