@@ -234,11 +234,28 @@ snapRunway = function(x, y, i)
   end
   return x, y
 end
+local snapWaypoint
+snapWaypoint = function(x, y)
+  for id, rw in pairs(runways) do
+    local rx1, ry1 = rw.points[1].x, rw.points[1].y
+    local rx2, ry2 = rw.points[2].x, rw.points[2].y
+    local dx = rx2 - rx1
+    local dy = ry2 - ry1
+    local dx2, dy2 = -dy, dx
+    local x2 = x + dx2
+    local y2 = y + dy2
+    local xi = ((rx1 * ry2 - ry1 * rx2) * (x - x2) - (rx1 - rx2) * (x * y2 - y * x2)) / ((rx1 - rx2) * (y - y2) - (x - x2) * (ry1 - ry2))
+    local yi = ((rx1 * ry2 - ry1 * rx2) * (y - y2) - (ry1 - ry2) * (x * y2 - y * x2)) / ((rx1 - rx2) * (y - y2) - (x - x2) * (ry1 - ry2))
+    x, y = snap(x, y, xi, yi)
+  end
+  return x, y
+end
 love.mousemoved = function(x, y)
   imgui.MouseMoved(x, y)
   if not imgui.GetWantCaptureMouse() then
     local _exp_0 = mode
     if "dragging" == _exp_0 then
+      x, y = snapWaypoint(x, y)
       waypoints[selected].x = x
       waypoints[selected].y = y
     elseif "placing_runway" == _exp_0 then
@@ -369,6 +386,7 @@ love.mousepressed = function(x, y, button)
           next_runway = next_runway + 1
           mode = "placing_runway"
         else
+          x, y = snapWaypoint(x, y)
           waypoints[next_waypoint] = {
             x = x,
             y = y,

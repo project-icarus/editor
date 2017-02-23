@@ -175,11 +175,30 @@ snapRunway = (x, y, i) ->
             x, y = snap(x, y, sel.points[i].x - dist * dy, sel.points[i].y + dist * dx)
     return x, y
 
+snapWaypoint = (x, y) ->
+    for id, rw in pairs runways
+        --colinear
+        rx1, ry1 = rw.points[1].x, rw.points[1].y
+        rx2, ry2 = rw.points[2].x, rw.points[2].y
+        dx = rx2 - rx1
+        dy = ry2 - ry1
+        dx2, dy2 =  -dy, dx
+        x2 = x + dx2
+        y2 = y + dy2
+        xi = ((rx1 * ry2 - ry1 * rx2) * (x - x2) - (rx1 - rx2) * (x * y2 - y * x2)) /
+            ((rx1 - rx2) * (y - y2) - (x - x2) * (ry1 - ry2))
+        yi = ((rx1 * ry2 - ry1 * rx2) * (y - y2) - (ry1 - ry2) * (x * y2 - y * x2)) /
+            ((rx1 - rx2) * (y - y2) - (x - x2) * (ry1 - ry2))
+        x, y = snap(x, y, xi, yi)
+    return x, y
+
+
 love.mousemoved = (x, y) ->
     imgui.MouseMoved(x, y)
     if not imgui.GetWantCaptureMouse!
         switch mode
             when "dragging"
+                x, y = snapWaypoint(x, y)
                 waypoints[selected].x = x
                 waypoints[selected].y = y
             when "placing_runway"
@@ -295,6 +314,7 @@ love.mousepressed = (x, y, button) ->
                         next_runway += 1
                         mode = "placing_runway"
                     else
+                        x, y = snapWaypoint(x, y)
                         waypoints[next_waypoint] =
                             x: x
                             y: y
